@@ -18,6 +18,21 @@ let selected = [];
 let worker;
 let ticker;
 let startedAt;
+let pausedAt = null;
+function resumeClock() {
+  if (pausedAt === null) return;
+  startedAt += performance.now() - pausedAt;
+  pausedAt = null;
+  document.body.classList.remove('paused');
+}
+$('pause').onclick = () => {
+  if (finished || pausedAt !== null) return;
+  pausedAt = performance.now();
+  $('timer').textContent = formatTime(pausedAt - startedAt);
+  document.body.classList.add('paused');
+  $('paused').showModal();
+};
+$('paused').onclose = resumeClock;
 let finished = false;
 let pendingIcons = '';
 let splits = [];
@@ -47,6 +62,7 @@ function sharedBoard(id) {
 }
 function finish(elapsed) {
   finished = true;
+  $('pause').disabled = true;
   clearInterval(ticker);
   $('timer').textContent = formatTime(elapsed);
   $('finishTime').textContent = 'Finished in ' + formatTime(elapsed);
@@ -73,7 +89,7 @@ function progress() {
   $('progress').textContent = found.size+' / '+current.sets.length+' sets found';
 }
 function choose(id) {
-  if (finished) return;
+  if (finished || pausedAt !== null) return;
   selected = selected.includes(id) ? selected.filter(x=>x!==id) : [...selected,id];
   if (selected.length === 3) {
     const triple = selected.slice().sort((a,b)=>a-b);
@@ -108,6 +124,9 @@ function choose(id) {
 function showBoard(result, options) {
   clearInterval(ticker);
   if ($('win').open) $('win').close();
+  if ($('paused').open) $('paused').close();
+  resumeClock();
+  $('pause').disabled = false;
   finished = false;
   pendingIcons = '';
   splits = [];
@@ -138,7 +157,7 @@ function showBoard(result, options) {
   startedAt = performance.now();
   $('timer').textContent = formatTime(0);
   if (!current.sets.length) finish(0);
-  else ticker = setInterval(() => { $('timer').textContent = formatTime(performance.now() - startedAt); }, 40);
+  else ticker = setInterval(() => { if (pausedAt === null) $('timer').textContent = formatTime(performance.now() - startedAt); }, 40);
 }
 function deal(options) {
   worker?.terminate();
